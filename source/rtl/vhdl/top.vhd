@@ -142,8 +142,8 @@ architecture rtl of top is
   signal char_we             : std_logic;
   signal char_address        : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
   signal char_value          : std_logic_vector(5 downto 0);
-  -- ----------------signal offset              : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
-  -------------------signal offset_next         : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  
+  signal offset              : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
 
   signal pixel_address       : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
   signal pixel_value         : std_logic_vector(GRAPH_MEM_DATA_WIDTH-1 downto 0);
@@ -159,13 +159,6 @@ architecture rtl of top is
   signal dir_pixel_column    : std_logic_vector(10 downto 0);
   signal dir_pixel_row       : std_logic_vector(10 downto 0);
 
---------------------  signal pixel_row           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
---------------------  signal pixel_col           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
-  
---------------------  signal sec_cnt             : std_logic_vector(24 downto 0);
---------------------  signal sec_cnt_next        : std_logic_vector(24 downto 0);
---------------------  signal move_cnt            : std_logic_vector(5 downto 0);
---------------------  signal move_cnt_next       : std_logic_vector(5 downto 0);
 begin
 
   -- calculate message lenght from font size
@@ -177,8 +170,8 @@ begin
   graphics_lenght <= conv_std_logic_vector(MEM_SIZE*8*8, GRAPH_MEM_ADDR_WIDTH);
   
   -- removed to inputs pin
-  direct_mode <= '1';
-  display_mode     <= "10";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+  direct_mode <= '0';
+  display_mode     <= "01";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
   
   font_size        <= x"1";
   show_frame       <= '1';
@@ -259,40 +252,40 @@ begin
   --dir_red
   --dir_green
   --dir_blue
-  ----------------ISCRTAVANJE 8 BOJA 
-dir_red <= 		 x"ff" when dir_pixel_column < 80 else --1
-				 x"ff" when dir_pixel_column < 160 else--2
-				 x"00" when dir_pixel_column < 240 else--3
-				 x"00" when dir_pixel_column < 320 else--4
-				 x"ff" when dir_pixel_column < 400 else--5
-				 x"ff" when dir_pixel_column < 480 else--6
-				 x"00" when dir_pixel_column < 560 else--7
-				 x"00";--8
-				 
-dir_green <= 		x"ff" when dir_pixel_column < 80 else--1
-					x"ff" when dir_pixel_column < 160 else--2
-					x"ff" when dir_pixel_column < 240 else--3
-					x"ff" when dir_pixel_column < 320 else--4
-					x"00" when dir_pixel_column < 400 else--5
-					x"00" when dir_pixel_column < 480 else--6
-					x"00" when dir_pixel_column < 560 else--7
-					x"00";				 --8
- 
-dir_blue <= 	  x"ff" when dir_pixel_column < 80 else--1
-				  x"00" when dir_pixel_column < 160 else--2
-				  x"ff" when dir_pixel_column < 240 else--3
-				  x"00" when dir_pixel_column < 320 else--4
-				  x"ff" when dir_pixel_column < 400 else--5
-				  x"00" when dir_pixel_column < 480 else--6
-				  x"ff" when dir_pixel_column < 560 else--7
-				  x"00";--8
+  
+	
+	dir_red <= x"ff" when dir_pixel_column < 80 else
+				 x"ff" when dir_pixel_column < 160 else
+				 x"00" when dir_pixel_column < 240 else
+				 x"00" when dir_pixel_column < 320 else
+				 x"ff" when dir_pixel_column < 400 else
+				 x"ff" when dir_pixel_column < 480 else
+				 x"00" when dir_pixel_column < 560 else
+				 x"00";
 
+	dir_green <= x"ff" when dir_pixel_column < 80 else
+					x"ff" when dir_pixel_column < 160 else
+					x"ff" when dir_pixel_column < 240 else
+					x"ff" when dir_pixel_column < 320 else
+					x"00" when dir_pixel_column < 400 else
+					x"00" when dir_pixel_column < 480 else
+					x"00" when dir_pixel_column < 560 else
+					x"00";
+				 
+	dir_blue <= x"ff" when dir_pixel_column < 80 else
+				  x"00" when dir_pixel_column < 160 else
+				  x"ff" when dir_pixel_column < 240 else
+				  x"00" when dir_pixel_column < 320 else
+				  x"ff" when dir_pixel_column < 400 else
+				  x"00" when dir_pixel_column < 480 else
+				  x"ff" when dir_pixel_column < 560 else
+x"00";
+ 
   -- koristeci signale realizovati logiku koja pise po TXT_MEM
   --char_address
   --char_value
   --char_we
-  ---------------------ISPIS TEKSTA
-char_we <= '1';
+  char_we <= '1';
 	
 offset <= (others => '0');
 	
@@ -307,21 +300,11 @@ offset <= (others => '0');
 			end if;
 		end if;
 	end process;
-					 -- 1 A  15  D 9 14 9 E F
-  char_value <= 	 "00"&X"1"  when char_address = "00000000000000" + offset else --A
-					 "00"&X"A"  when char_address = "00000000000001" + offset else --J
-					 "01"&X"0"  when char_address = "00000000000010" + offset else --
-					 "00"&X"15" when char_address = "00000000000011" + offset else --U
-					 "00"&X"0"  when char_address = "00000000000100" + offset else --
-					 "10"&X"D"  when char_address = "00000000000101" + offset else --M
-					 "00"&X"9"  when char_address = "00000000000110" + offset else --I
-					 "01"&X"14" when char_address = "00000000000111" + offset else --T
-					 "01"&X"9"  when char_address = "00000000001000" + offset else --I
-					 "01"&X"E"  when char_address = "00000000001001" + offset else --N
-					 "00"&X"F"  when char_address = "00000000001010" + offset else --O
-					 "10"&X"0";
 					 
-
+  char_value <= 	 "000001"  when char_address = "00010000000010" else
+		"100000";
+					 
+  
   -- koristeci signale realizovati logiku koja pise po GRAPH_MEM
   --pixel_address
   --pixel_value
