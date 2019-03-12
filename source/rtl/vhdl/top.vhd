@@ -13,7 +13,6 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_arith.all;
 use ieee.std_logic_unsigned.all;
-use ieee.numeric_std.all;
 
 entity top is
   generic (
@@ -143,8 +142,8 @@ architecture rtl of top is
   signal char_we             : std_logic;
   signal char_address        : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
   signal char_value          : std_logic_vector(5 downto 0);
-  signal offset              : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
-  signal offset_next         : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  -- ----------------signal offset              : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  -------------------signal offset_next         : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
 
   signal pixel_address       : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
   signal pixel_value         : std_logic_vector(GRAPH_MEM_DATA_WIDTH-1 downto 0);
@@ -159,141 +158,174 @@ architecture rtl of top is
   signal dir_blue            : std_logic_vector(7 downto 0);
   signal dir_pixel_column    : std_logic_vector(10 downto 0);
   signal dir_pixel_row       : std_logic_vector(10 downto 0);
+
+--------------------  signal pixel_row           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
+--------------------  signal pixel_col           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
   
-  signal pixel_row           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
-  signal pixel_col           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
-  
-  signal sec_cnt             : std_logic_vector(24 downto 0);
-  signal sec_cnt_next        : std_logic_vector(24 downto 0);
-  signal move_cnt            : std_logic_vector(5 downto 0);
-  signal move_cnt_next       : std_logic_vector(5 downto 0);
+--------------------  signal sec_cnt             : std_logic_vector(24 downto 0);
+--------------------  signal sec_cnt_next        : std_logic_vector(24 downto 0);
+--------------------  signal move_cnt            : std_logic_vector(5 downto 0);
+--------------------  signal move_cnt_next       : std_logic_vector(5 downto 0);
 begin
 
-	-- calculate message lenght from font size
-	message_lenght <= conv_std_logic_vector(MEM_SIZE/64, MEM_ADDR_WIDTH)when (font_size = 3) else -- note: some resolution with font size (32, 64)  give non integer message lenght (like 480x640 on 64 pixel font size) 480/64= 7.5
-						  conv_std_logic_vector(MEM_SIZE/16, MEM_ADDR_WIDTH)when (font_size = 2) else
-						  conv_std_logic_vector(MEM_SIZE/4 , MEM_ADDR_WIDTH)when (font_size = 1) else
-						  conv_std_logic_vector(MEM_SIZE   , MEM_ADDR_WIDTH);
+  -- calculate message lenght from font size
+  message_lenght <= conv_std_logic_vector(MEM_SIZE/64, MEM_ADDR_WIDTH)when (font_size = 3) else -- note: some resolution with font size (32, 64)  give non integer message lenght (like 480x640 on 64 pixel font size) 480/64= 7.5
+                    conv_std_logic_vector(MEM_SIZE/16, MEM_ADDR_WIDTH)when (font_size = 2) else
+                    conv_std_logic_vector(MEM_SIZE/4 , MEM_ADDR_WIDTH)when (font_size = 1) else
+                    conv_std_logic_vector(MEM_SIZE   , MEM_ADDR_WIDTH);
+  
+  graphics_lenght <= conv_std_logic_vector(MEM_SIZE*8*8, GRAPH_MEM_ADDR_WIDTH);
+  
+  -- removed to inputs pin
+  direct_mode <= '1';
+  display_mode     <= "10";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+  
+  font_size        <= x"1";
+  show_frame       <= '1';
+  foreground_color <= x"FFFFFF";
+  background_color <= x"000000";
+  frame_color      <= x"FF0000";
 
-	graphics_lenght <= conv_std_logic_vector(MEM_SIZE*8*8, GRAPH_MEM_ADDR_WIDTH);
+  clk5m_inst : ODDR2
+  generic map(
+    DDR_ALIGNMENT => "NONE",  -- Sets output alignment to "NONE","C0", "C1" 
+    INIT => '0',              -- Sets initial state of the Q output to '0' or '1'
+    SRTYPE => "SYNC"          -- Specifies "SYNC" or "ASYNC" set/reset
+  )
+  port map (
+    Q  => pix_clock_o,       -- 1-bit output data
+    C0 => pix_clock_s,       -- 1-bit clock input
+    C1 => pix_clock_n,       -- 1-bit clock input
+    CE => '1',               -- 1-bit clock enable input
+    D0 => '1',               -- 1-bit data input (associated with C0)
+    D1 => '0',               -- 1-bit data input (associated with C1)
+    R  => '0',               -- 1-bit reset input
+    S  => '0'                -- 1-bit set input
+  );
+  pix_clock_n <= not(pix_clock_s);
 
-	-- removed to inputs pin
-	direct_mode <= '0';
-	display_mode     <= "11";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
-
-	font_size        <= x"1";
-	show_frame       <= '0';
-	foreground_color <= x"FFFFFF";
-	background_color <= x"000000";
-	frame_color      <= x"FF0000";
-
-	clk5m_inst : ODDR2
-	generic map(
-	 DDR_ALIGNMENT => "NONE",  -- Sets output alignment to "NONE","C0", "C1" 
-	 INIT => '0',              -- Sets initial state of the Q output to '0' or '1'
-	 SRTYPE => "SYNC"          -- Specifies "SYNC" or "ASYNC" set/reset
-	)
-	port map (
-	 Q  => pix_clock_o,       -- 1-bit output data
-	 C0 => pix_clock_s,       -- 1-bit clock input
-	 C1 => pix_clock_n,       -- 1-bit clock input
-	 CE => '1',               -- 1-bit clock enable input
-	 D0 => '1',               -- 1-bit data input (associated with C0)
-	 D1 => '0',               -- 1-bit data input (associated with C1)
-	 R  => '0',               -- 1-bit reset input
-	 S  => '0'                -- 1-bit set input
-	);
-	pix_clock_n <= not(pix_clock_s);
-
-	-- component instantiation
-	vga_top_i: vga_top
-	generic map(
-	 RES_TYPE             => RES_TYPE,
-	 H_RES                => H_RES,
-	 V_RES                => V_RES,
-	 MEM_ADDR_WIDTH       => MEM_ADDR_WIDTH,
-	 GRAPH_MEM_ADDR_WIDTH => GRAPH_MEM_ADDR_WIDTH,
-	 TEXT_MEM_DATA_WIDTH  => TEXT_MEM_DATA_WIDTH,
-	 GRAPH_MEM_DATA_WIDTH => GRAPH_MEM_DATA_WIDTH,
-	 MEM_SIZE             => MEM_SIZE
-	)
-	port map(
-	 clk_i              => clk_i,
-	 reset_n_i          => reset_n_i,
-	 --
-	 direct_mode_i      => direct_mode,
-	 dir_red_i          => dir_red,
-	 dir_green_i        => dir_green,
-	 dir_blue_i         => dir_blue,
-	 dir_pixel_column_o => dir_pixel_column,
-	 dir_pixel_row_o    => dir_pixel_row,
-	 -- cfg
-	 display_mode_i     => display_mode,  -- 01 - text mode,  - graphics mode, 11 - text & graphics
-	 -- text mode interface
-	 text_addr_i        => char_address,
-	 text_data_i        => char_value,
-	 text_we_i          => char_we,
-	 -- graphics mode interface
-	 graph_addr_i       => pixel_address,
-	 graph_data_i       => pixel_value,
-	 graph_we_i         => pixel_we,
-	 -- cfg
-	 font_size_i        => font_size,
-	 show_frame_i       => show_frame,
-	 foreground_color_i => foreground_color,
-	 background_color_i => background_color,
-	 frame_color_i      => frame_color,
-	 -- vga
-	 vga_hsync_o        => vga_hsync_o,
-	 vga_vsync_o        => vga_vsync_o,
-	 blank_o            => blank_o,
-	 pix_clock_o        => pix_clock_s,
-	 vga_rst_n_o        => vga_rst_n_s,
-	 psave_o            => psave_o,
-	 sync_o             => sync_o,
-	 red_o              => red_o,
-	 green_o            => green_o,
-	 blue_o             => blue_o     
-	);
-
-	-- na osnovu signala iz vga_top modula dir_pixel_column i dir_pixel_row realizovati logiku koja genereise
-	--dir_red
-	--dir_green
-	--dir_blue
-	 
-	dir_red <= x"ff" when dir_pixel_column < 80 else
-				 x"ff" when dir_pixel_column < 160 else
-				 x"00" when dir_pixel_column < 240 else
-				 x"00" when dir_pixel_column < 320 else
-				 x"ff" when dir_pixel_column < 400 else
-				 x"ff" when dir_pixel_column < 480 else
-				 x"00" when dir_pixel_column < 560 else
-				 x"00";
-
-	dir_green <= x"ff" when dir_pixel_column < 80 else
-					x"ff" when dir_pixel_column < 160 else
-					x"ff" when dir_pixel_column < 240 else
-					x"ff" when dir_pixel_column < 320 else
-					x"00" when dir_pixel_column < 400 else
-					x"00" when dir_pixel_column < 480 else
-					x"00" when dir_pixel_column < 560 else
-					x"00";
+  -- component instantiation
+  vga_top_i: vga_top
+  generic map(
+    RES_TYPE             => RES_TYPE,
+    H_RES                => H_RES,
+    V_RES                => V_RES,
+    MEM_ADDR_WIDTH       => MEM_ADDR_WIDTH,
+    GRAPH_MEM_ADDR_WIDTH => GRAPH_MEM_ADDR_WIDTH,
+    TEXT_MEM_DATA_WIDTH  => TEXT_MEM_DATA_WIDTH,
+    GRAPH_MEM_DATA_WIDTH => GRAPH_MEM_DATA_WIDTH,
+    MEM_SIZE             => MEM_SIZE
+  )
+  port map(
+    clk_i              => clk_i,
+    reset_n_i          => reset_n_i,
+    --
+    direct_mode_i      => direct_mode,
+    dir_red_i          => dir_red,
+    dir_green_i        => dir_green,
+    dir_blue_i         => dir_blue,
+    dir_pixel_column_o => dir_pixel_column,
+    dir_pixel_row_o    => dir_pixel_row,
+    -- cfg
+    display_mode_i     => display_mode,  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+    -- text mode interface
+    text_addr_i        => char_address,
+    text_data_i        => char_value,
+    text_we_i          => char_we,
+    -- graphics mode interface
+    graph_addr_i       => pixel_address,
+    graph_data_i       => pixel_value,
+    graph_we_i         => pixel_we,
+    -- cfg
+    font_size_i        => font_size,
+    show_frame_i       => show_frame,
+    foreground_color_i => foreground_color,
+    background_color_i => background_color,
+    frame_color_i      => frame_color,
+    -- vga
+    vga_hsync_o        => vga_hsync_o,
+    vga_vsync_o        => vga_vsync_o,
+    blank_o            => blank_o,
+    pix_clock_o        => pix_clock_s,
+    vga_rst_n_o        => vga_rst_n_s,
+    psave_o            => psave_o,
+    sync_o             => sync_o,
+    red_o              => red_o,
+    green_o            => green_o,
+    blue_o             => blue_o     
+  );
+  
+  -- na osnovu signala iz vga_top modula dir_pixel_column i dir_pixel_row realizovati logiku koja genereise
+  --dir_red
+  --dir_green
+  --dir_blue
+  ----------------ISCRTAVANJE 8 BOJA 
+dir_red <= 		 x"ff" when dir_pixel_column < 80 else --1
+				 x"ff" when dir_pixel_column < 160 else--2
+				 x"00" when dir_pixel_column < 240 else--3
+				 x"00" when dir_pixel_column < 320 else--4
+				 x"ff" when dir_pixel_column < 400 else--5
+				 x"ff" when dir_pixel_column < 480 else--6
+				 x"00" when dir_pixel_column < 560 else--7
+				 x"00";--8
 				 
-	dir_blue <= x"ff" when dir_pixel_column < 80 else
-				  x"00" when dir_pixel_column < 160 else
-				  x"ff" when dir_pixel_column < 240 else
-				  x"00" when dir_pixel_column < 320 else
-				  x"ff" when dir_pixel_column < 400 else
-				  x"00" when dir_pixel_column < 480 else
-				  x"ff" when dir_pixel_column < 560 else
-				  x"00";
+dir_green <= 		x"ff" when dir_pixel_column < 80 else--1
+					x"ff" when dir_pixel_column < 160 else--2
+					x"ff" when dir_pixel_column < 240 else--3
+					x"ff" when dir_pixel_column < 320 else--4
+					x"00" when dir_pixel_column < 400 else--5
+					x"00" when dir_pixel_column < 480 else--6
+					x"00" when dir_pixel_column < 560 else--7
+					x"00";				 --8
+ 
+dir_blue <= 	  x"ff" when dir_pixel_column < 80 else--1
+				  x"00" when dir_pixel_column < 160 else--2
+				  x"ff" when dir_pixel_column < 240 else--3
+				  x"00" when dir_pixel_column < 320 else--4
+				  x"ff" when dir_pixel_column < 400 else--5
+				  x"00" when dir_pixel_column < 480 else--6
+				  x"ff" when dir_pixel_column < 560 else--7
+				  x"00";--8
 
-	-- koristeci signale realizovati logiku koja pise po TXT_MEM
-	--char_address
-	--char_value
-	--char_we
-
-
+  -- koristeci signale realizovati logiku koja pise po TXT_MEM
+  --char_address
+  --char_value
+  --char_we
+  ---------------------ISPIS TEKSTA
+char_we <= '1';
 	
+offset <= (others => '0');
+	
+	process(pix_clock_s, vga_rst_n_s) begin
+		if(vga_rst_n_s = '0') then
+			char_address <= (others=>'0');
+		elsif(rising_edge(pix_clock_s)) then
+			if(char_address = "1001011000000") then
+				char_address <= (others=>'0');
+			else
+				char_address <= char_address + 1;
+			end if;
+		end if;
+	end process;
+					 -- 1 A  15  D 9 14 9 E F
+  char_value <= 	 "00"&X"1"  when char_address = "00000000000000" + offset else --A
+					 "00"&X"A"  when char_address = "00000000000001" + offset else --J
+					 "01"&X"0"  when char_address = "00000000000010" + offset else --
+					 "00"&X"15" when char_address = "00000000000011" + offset else --U
+					 "00"&X"0"  when char_address = "00000000000100" + offset else --
+					 "10"&X"D"  when char_address = "00000000000101" + offset else --M
+					 "00"&X"9"  when char_address = "00000000000110" + offset else --I
+					 "01"&X"14" when char_address = "00000000000111" + offset else --T
+					 "01"&X"9"  when char_address = "00000000001000" + offset else --I
+					 "01"&X"E"  when char_address = "00000000001001" + offset else --N
+					 "00"&X"F"  when char_address = "00000000001010" + offset else --O
+					 "10"&X"0";
+					 
 
+  -- koristeci signale realizovati logiku koja pise po GRAPH_MEM
+  --pixel_address
+  --pixel_value
+  --pixel_we
+  
+  
 end rtl;
